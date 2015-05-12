@@ -8,10 +8,9 @@ package de.lab.hcm.textemotion;
  * University of Augsburg
  */
 
-import de.lab.hcm.textemotion.TextEmotion.Category;
+import android.content.Context;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -19,19 +18,26 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 public class DataParser {
 
     private static final String className = "DataParser";
 
+    private Context mContext;
 
-    static List<Category> loadCategories() throws Exception {
+    public DataParser(Context context){
+        mContext = context;
+    }
+
+    public List<Category> loadCategories() throws Exception {
 
         List<Category> categories = new ArrayList<Category>();
 
         android.util.Log.d(className, "Loading categories ...");
 
-        InputStream iS = TextEmotion.instance.getAssets().open("StdLIWCCategories.txt");
+        InputStream iS = mContext.getAssets().open("StdLIWCCategories.txt");
         BufferedReader reader = new BufferedReader(new InputStreamReader(iS));
 
         String line;
@@ -52,13 +58,13 @@ public class DataParser {
     }
 
 
-    static Map<String, List<Integer>> loadCatMap() throws Exception
+    public SortedMap<String, List<Integer>> loadCatMap() throws Exception
     {
-        Map<String, List<Integer>> catMap = new HashMap<String, List<Integer>>();
+        SortedMap<String, List<Integer>> catMap = new TreeMap<String, List<Integer>>();
 
         android.util.Log.d(className, "Loading category map ...");
 
-        InputStream iS = TextEmotion.instance.getAssets().open("DefaultDictionary.txt");
+        InputStream iS = mContext.getAssets().open("DefaultDictionary.txt");
         BufferedReader reader = new BufferedReader(new InputStreamReader(iS));
 
         String line;
@@ -77,10 +83,10 @@ public class DataParser {
     }
 
 
-    static List<String> loadDataLines(String fn) throws IOException {
+    public List<String> loadDataLines(String fn) throws IOException {
         List<String> ret = new ArrayList<String>();
 
-        InputStream iS = TextEmotion.instance.getAssets().open(fn);
+        InputStream iS = mContext.getAssets().open(fn);
         BufferedReader br = new BufferedReader(new InputStreamReader(iS));
 
         String line;
