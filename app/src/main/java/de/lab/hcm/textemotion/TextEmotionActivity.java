@@ -12,13 +12,12 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.KeyEvent;
-import android.view.Menu;
-import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -60,7 +59,7 @@ public class TextEmotionActivity extends Activity {
     private int ATTRIB_COUNT = 2;
     private int ATTRIB_CLASS = 0;
     public String[] emotions = null;
-    public FastVector attributes = null;
+    public FastVector<Attribute> attributes = null;
     private Classifier cl;
     private Instances trainingData;
     
@@ -69,20 +68,6 @@ public class TextEmotionActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_text_emotion);
         mDataParser = new DataParser(this);
-
-        Button btnStart = (Button) findViewById(R.id.train);
-        btnStart.setOnClickListener(new Button.OnClickListener() {
-            public void onClick(View v) {
-                train();
-            }
-        });
-
-        Button btnTest = (Button) findViewById(R.id.test);
-        btnTest.setOnClickListener(new Button.OnClickListener() {
-            public void onClick(View v) {
-                testText();
-            }
-        });
 
         mEvalResultTextView = (TextView) findViewById(R.id.evalResult);
         mResultImageView = (ImageView) findViewById(R.id.result);
@@ -101,15 +86,23 @@ public class TextEmotionActivity extends Activity {
                 return false;
             }
         });
+        mTestInputEditText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
 
-        mResultImageView.setBackground(getResources().getDrawable(R.drawable.positive, null));
-    }
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                testText();
+            }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_text_emotion, menu);
-        return true;
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
+        });
+
+        mResultImageView.setBackground(getResources().getDrawable(R.drawable.neutral, null));
+        train();
     }
 
     private void train()
@@ -121,7 +114,7 @@ public class TextEmotionActivity extends Activity {
 
             ATTRIB_COUNT = 0;
 
-            FastVector fvClassVal = new FastVector(2);
+            FastVector<String> fvClassVal = new FastVector<>(2);
 
             fvClassVal.addElement(emotions[0]);
             fvClassVal.addElement(emotions[1]);
@@ -133,7 +126,7 @@ public class TextEmotionActivity extends Activity {
             ATTRIB_COUNT++;
 
             // Create vector for attributes
-            attributes = new FastVector(ATTRIB_COUNT);
+            attributes = new FastVector<>(ATTRIB_COUNT);
             attributes.addElement(emotionClasses);
             attributes.addElement(myFeature);
             ATTRIB_CLASS = 0;
@@ -194,8 +187,7 @@ public class TextEmotionActivity extends Activity {
     }
 
 
-    private void testText()
-    {
+    private void testText() {
         String line = mTestInputEditText.getText().toString();
         Log.d(TAG, "Texting: " + line);
 
@@ -209,25 +201,31 @@ public class TextEmotionActivity extends Activity {
 
             double max = 0;
             int sel = 0;
-            for(int i=0; i<3; i++) {
-                if(result[i]>max) {
-                    max=result[i];
+            for (int i = 0; i < 3; i++) {
+                if (result[i] > max) {
+                    max = result[i];
                     sel = i;
                 }
             }
             Log.d(TAG, "Ergebnis: " + emotions[sel]);
+            final int value = sel;
+            mResultImageView.post(new Runnable() {
+                @Override
+                public void run() {
 
-            switch (sel) {
-                case 0:
-                    mResultImageView.setBackground(getResources().getDrawable(R.drawable.positive, null));
-                    break;
-                case 1:
-                    mResultImageView.setBackground(getResources().getDrawable(R.drawable.negative, null));
-                    break;
-                case 2:
-                    mResultImageView.setBackground(getResources().getDrawable(R.drawable.neutral, null));
-                    break;
-            }
+                    switch (value) {
+                        case 0:
+                            mResultImageView.setBackground(getResources().getDrawable(R.drawable.positive, null));
+                            break;
+                        case 1:
+                            mResultImageView.setBackground(getResources().getDrawable(R.drawable.negative, null));
+                            break;
+                        case 2:
+                            mResultImageView.setBackground(getResources().getDrawable(R.drawable.neutral, null));
+                            break;
+                    }
+                }
+            });
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -255,14 +253,14 @@ public class TextEmotionActivity extends Activity {
         // Assign the first attributes (the class)
         Instance ret = new DenseInstance(ATTRIB_COUNT);
         if(emotion != null) {
-            ret.setValue((Attribute) attributes.elementAt(0), emotion);
+            ret.setValue(attributes.elementAt(0), emotion);
         }
 
         //
         // Do some feature extraction and calculation
         // Make use of the dictionary and word categories
         //
-        float exampleValue = 0.0f;
+        float exampleValue;
 
         /* Gets all matches */
         String[] textSplit = text.split(" ");
@@ -287,7 +285,7 @@ public class TextEmotionActivity extends Activity {
         // e.g. we use the length of the string
         exampleValue = text.length();
 
-        ret.setValue((Attribute)attributes.elementAt(1), exampleValue);
+        ret.setValue(attributes.elementAt(1), exampleValue);
         return ret;
     }
 
