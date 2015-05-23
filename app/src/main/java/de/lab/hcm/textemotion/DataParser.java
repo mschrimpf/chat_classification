@@ -70,8 +70,8 @@ public class DataParser {
         String line;
         while ((line = reader.readLine()) != null) {
             String[] values = line.split(" ");
-            String category = values[0];
-            List<Integer> categories = new ArrayList<Integer>();
+            String category = values[0].replace("*", ".*");
+            List<Integer> categories = new ArrayList<>();
             for (int i = values.length - 1; !values[i].equals(""); i--) {
                 categories.add(Integer.valueOf(values[i]));
             }

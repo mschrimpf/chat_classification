@@ -62,6 +62,25 @@ public class TextEmotionActivity extends Activity {
     public FastVector<Attribute> attributes = null;
     private Classifier cl;
     private Instances trainingData;
+
+    //Negative values of LIWCCategories
+    int[] negatives = {
+            16, //negemo - negative emotions
+            17, //anx - anxiety
+            18, //anger - anger
+            19, //sad - sadness
+    };
+
+    //Positive values of LIWCCategories
+    int[] positives = {
+            13, //posemo - positive emotions
+            17, //anx - anxiety
+            18, //anger - anger
+            19, //sad - sadness
+    };
+
+    //Negation value of LIWCCategories
+    int negation = 7;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,20 +134,22 @@ public class TextEmotionActivity extends Activity {
             ATTRIB_COUNT = 0;
 
             FastVector<String> fvClassVal = new FastVector<>(2);
-
             fvClassVal.addElement(emotions[0]);
             fvClassVal.addElement(emotions[1]);
             fvClassVal.addElement(emotions[2]);
 
             Attribute emotionClasses = new Attribute("Emotion", fvClassVal);
             ATTRIB_COUNT++;
-            Attribute myFeature = new Attribute("myFeature");
+            Attribute liwcCategories = new Attribute("liwcCategories");
+            ATTRIB_COUNT++;
+            Attribute wordAnalysis = new Attribute("wordAnalysis");
             ATTRIB_COUNT++;
 
             // Create vector for attributes
             attributes = new FastVector<>(ATTRIB_COUNT);
             attributes.addElement(emotionClasses);
-            attributes.addElement(myFeature);
+            attributes.addElement(liwcCategories);
+            attributes.addElement(wordAnalysis);
             ATTRIB_CLASS = 0;
 
             // Load category map
@@ -275,17 +296,20 @@ public class TextEmotionActivity extends Activity {
                 String prefix = input.length() > 1 ? input.substring(0, 2) : input.substring(0, 1);
                 for (Map.Entry<String, List<Integer>> entry : filterPrefix(catMap, prefix).entrySet()){
                     Pattern pattern = Pattern.compile(entry.getKey());
-                    if (pattern.matcher(input).find()){
+                    if (pattern.matcher(input).matches()){
                         matches.addAll(entry.getValue());
                     }
                 }
             }
         }
 
+        //matches contains all categories that are found in the given text - now what?! TODO
+
         // e.g. we use the length of the string
         exampleValue = text.length();
 
-        ret.setValue(attributes.elementAt(1), exampleValue);
+        ret.setValue(attributes.elementAt(1), exampleValue); //liwcCategories
+        ret.setValue(attributes.elementAt(2), exampleValue); //wordAnalysis
         return ret;
     }
 
@@ -293,6 +317,7 @@ public class TextEmotionActivity extends Activity {
     public <V> SortedMap<String, V> filterPrefix(SortedMap<String,V> baseMap, String prefix) {
         if(prefix.length() > 0) {
             char nextLetter = prefix.charAt(prefix.length() -1);
+            nextLetter++;
             String end = prefix.substring(0, prefix.length()-1) + nextLetter;
             return baseMap.subMap(prefix, end);
         }
