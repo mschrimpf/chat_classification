@@ -25,6 +25,8 @@ import android.widget.TextView;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,21 +65,9 @@ public class TextEmotionActivity extends Activity {
     private Classifier cl;
     private Instances trainingData;
 
-    //Negative values of LIWCCategories
-    int[] negatives = {
-            16, //negemo - negative emotions
-            17, //anx - anxiety
-            18, //anger - anger
-            19, //sad - sadness
-    };
+    private List<Integer> negativeList;
+    private List<Integer> positiveList;
 
-    //Positive values of LIWCCategories
-    int[] positives = {
-            13, //posemo - positive emotions
-            17, //anx - anxiety
-            18, //anger - anger
-            19, //sad - sadness
-    };
 
     //Negation value of LIWCCategories
     int negation = 7;
@@ -121,7 +111,28 @@ public class TextEmotionActivity extends Activity {
         });
 
         mResultImageView.setBackground(getResources().getDrawable(R.drawable.neutral, null));
+        initLists();
         train();
+    }
+
+    private void initLists() {
+        //Negative values of LIWCCategories
+        negativeList = new ArrayList<>();
+        Collections.addAll(negativeList,
+                16, //negemo - negative emotions
+                17, //anx - anxiety
+                18, //anger - anger
+                19 //sad - sadness
+        );
+
+        //Positive values of LIWCCategories
+        positiveList = new ArrayList<>();
+        Collections.addAll(positiveList,
+                13, //posemo - positive emotions
+                17, //anx - anxiety
+                18, //anger - anger
+                19 //sad - sadness
+        );
     }
 
     private void train()
@@ -281,35 +292,48 @@ public class TextEmotionActivity extends Activity {
         // Do some feature extraction and calculation
         // Make use of the dictionary and word categories
         //
-        float exampleValue;
 
         /* Gets all matches */
         String[] textSplit = text.split(" ");
-        List<Integer> matches = new ArrayList<>();
+        List<Integer> matchingCategories = new ArrayList<>();
 
         for (String input : textSplit){
             if (catMap.containsKey(input)){
                 /* already inside of the map */
-                matches.addAll(catMap.get(input));
+                matchingCategories.addAll(catMap.get(input));
             }else{
                 /* Look for every word which starts with first two (or one, if only one character) and check those */
                 String prefix = input.length() > 1 ? input.substring(0, 2) : input.substring(0, 1);
                 for (Map.Entry<String, List<Integer>> entry : filterPrefix(catMap, prefix).entrySet()){
                     Pattern pattern = Pattern.compile(entry.getKey());
                     if (pattern.matcher(input).matches()){
-                        matches.addAll(entry.getValue());
+                        matchingCategories.addAll(entry.getValue());
                     }
                 }
             }
         }
 
-        //matches contains all categories that are found in the given text - now what?! TODO
 
-        // e.g. we use the length of the string
-        exampleValue = text.length();
+        //matchingCategories contains all categories that are found in the given text - now what?! TODO
+        int value = 0;
+        boolean negative = false;
+        for (int categoryId : matchingCategories){
+            if (positiveList.indexOf(categoryId) >= 0){
+                value++;
+            }
+            if (negativeList.indexOf(categoryId) >= 0){
+                value--;
+            }
+            if (categoryId == negation){
+                negative = !negative;
+            }
+        }
+        if (negative){
+            value *= -1;
+        }
 
-        ret.setValue(attributes.elementAt(1), exampleValue); //liwcCategories
-        ret.setValue(attributes.elementAt(2), exampleValue); //wordAnalysis
+        ret.setValue(attributes.elementAt(1), value); //liwcCategories
+        //ret.setValue(attributes.elementAt(2), exampleValue); //wordAnalysis
         return ret;
     }
 

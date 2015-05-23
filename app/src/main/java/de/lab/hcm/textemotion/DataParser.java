@@ -70,7 +70,8 @@ public class DataParser {
         String line;
         while ((line = reader.readLine()) != null) {
             String[] values = line.split(" ");
-            String category = values[0].replace("*", ".*");
+            String category = values[0].replace("*", ".*"); //Required so that we can use java regex expressions
+            //category = category.replace("'", ""); //don't and dont should be seen as one word? might give us some trouble afterwards
             List<Integer> categories = new ArrayList<>();
             for (int i = values.length - 1; !values[i].equals(""); i--) {
                 categories.add(Integer.valueOf(values[i]));
