@@ -122,16 +122,41 @@ public class TextEmotionActivity extends Activity {
                 16, //negemo - negative emotions
                 17, //anx - anxiety
                 18, //anger - anger
-                19 //sad - sadness
+                19, //sad - sadness
+                //24, //inhib - Inhibition
+                66, //swear - Swear Words
+                67, //Nonfl - Nonfluencies
+                68,  //Fillers
+                59 //death
+                //47, //occup
+                //48, //school
+                //49, //job
+                //56 //money
+                //61 //body
+
         );
 
         //Positive values of LIWCCategories
         positiveList = new ArrayList<>();
         Collections.addAll(positiveList,
                 13, //posemo - positive emotions
-                17, //anx - anxiety
-                18, //anger - anger
-                19 //sad - sadness
+                14,	//Posfeel - positive feelings
+                15,	//Optim - optimism
+                //31, //social
+                //32, //comm - communication
+                34, //Friends
+                35, //Family
+                50, //achieve
+                36, //humans
+                58 //religion
+                //51 //leisure
+                //52, //home
+                //53, //sports
+                //54 //tv
+                //55 //Music
+                //62 //sexual
+                //63, //eating
+                //64 //sleep
         );
     }
 
@@ -294,35 +319,34 @@ public class TextEmotionActivity extends Activity {
         //
 
         /* Gets all matches */
-        String[] textSplit = text.split(" ");
+        String[] textSplit = text.toLowerCase().split(" ");
         List<Integer> matchingCategories = new ArrayList<>();
 
-        for (String input : textSplit){
-            if (catMap.containsKey(input)){
+        for (String input : textSplit) {
+            if (catMap.containsKey(input)) {
                 /* already inside of the map */
                 matchingCategories.addAll(catMap.get(input));
-            }else{
+            } else {
                 /* Look for every word which starts with first two (or one, if only one character) and check those */
                 String prefix = input.length() > 1 ? input.substring(0, 2) : input.substring(0, 1);
-                for (Map.Entry<String, List<Integer>> entry : filterPrefix(catMap, prefix).entrySet()){
+                for (Map.Entry<String, List<Integer>> entry : filterPrefix(catMap, prefix).entrySet()) {
                     Pattern pattern = Pattern.compile(entry.getKey());
-                    if (pattern.matcher(input).matches()){
+                    if (pattern.matcher(input).matches()) {
                         matchingCategories.addAll(entry.getValue());
                     }
                 }
             }
         }
 
-
         //matchingCategories contains all categories that are found in the given text - now what?! TODO
         int value = 0;
         boolean negative = false;
         for (int categoryId : matchingCategories){
             if (positiveList.indexOf(categoryId) >= 0){
-                value++;
+                value += 1;
             }
             if (negativeList.indexOf(categoryId) >= 0){
-                value--;
+                value -= 1;
             }
             if (categoryId == negation){
                 negative = !negative;
