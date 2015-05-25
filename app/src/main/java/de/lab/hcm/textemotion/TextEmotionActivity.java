@@ -71,6 +71,9 @@ public class TextEmotionActivity extends Activity {
 
     //Negation value of LIWCCategories
     int negation = 7;
+    int exclusive = 45;
+    int tentative = 25; // maybe, perhaps, gues
+    int certainty = 26;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,44 +122,49 @@ public class TextEmotionActivity extends Activity {
         //Negative values of LIWCCategories
         negativeList = new ArrayList<>();
         Collections.addAll(negativeList,
-                16, //negemo - negative emotions
-                17, //anx - anxiety
-                18, //anger - anger
-                19, //sad - sadness
-                //24, //inhib - Inhibition
-                66, //swear - Swear Words
-                67, //Nonfl - Nonfluencies
-                68,  //Fillers
-                59 //death
-                //47, //occup
-                //48, //school
-                //49, //job
-                //56 //money
-                //61 //body
-
+                8 //assent - Agree, OK, yes
+                ,16 //negemo - negative emotions
+                ,17 //anx - anxiety
+                ,18 //anger - anger
+                ,19 //sad - sadness
+                //,24 //inhib - Inhibition
+                ,66 //swear - Swear Words
+                ,67 //Nonfl - Nonfluencies
+                //,58 //religion
+                ,59 //death
+                //,68  //Fillers
+                //,47 //occup
+                //,48 //school
+                //,49 //job
+                //,56 //money
+                //,61 //body
+                //,43 //down
+                //,40 //future
         );
 
         //Positive values of LIWCCategories
         positiveList = new ArrayList<>();
         Collections.addAll(positiveList,
-                13, //posemo - positive emotions
-                14,	//Posfeel - positive feelings
-                15,	//Optim - optimism
-                //31, //social
-                //32, //comm - communication
-                34, //Friends
-                35, //Family
-                50, //achieve
-                36, //humans
-                58 //religion
-                //51 //leisure
-                //52, //home
-                //53, //sports
-                //54 //tv
-                //55 //Music
-                //62 //sexual
-                //63, //eating
-                //64 //sleep
+                13 //posemo - positive emotions
+                ,14	//Posfeel - positive feelings
+                ,15	//Optim - optimism
+                //,31 //social
+                //,32 //comm - communication
+                ,34 //Friends
+                ,35 //Family
+                ,50 //achieve
+                ,36 //humans
+                //,51 //leisure
+                //,52 //home
+                //,53 //sports
+                //,54 //tv
+                //,55 //Music
+                //,62 //sexual
+                //,63 //eating
+                //,64 //sleep
+                //,42 //up
+                //,65 //groom
+                //,38 //past
         );
     }
 
@@ -341,6 +349,7 @@ public class TextEmotionActivity extends Activity {
         //matchingCategories contains all categories that are found in the given text - now what?! TODO
         int value = 0;
         boolean negative = false;
+        int effect = 1;
         for (int categoryId : matchingCategories){
             if (positiveList.indexOf(categoryId) >= 0){
                 value += 1;
@@ -351,10 +360,21 @@ public class TextEmotionActivity extends Activity {
             if (categoryId == negation){
                 negative = !negative;
             }
+            /*
+            //maybe, perhaps...
+            if (categoryId == tentative){
+                effect *= 0.5;
+            } if (categoryId == 2 || categoryId == 4 || categoryId == 3){ // I, myself, we
+                //effect *= 0.5;
+            }
+            if (categoryId == 5 || categoryId == 6){ //you, others
+                effect *= 0.9;
+            }*/
         }
         if (negative){
             value *= -1;
         }
+        value *= effect;
 
         ret.setValue(attributes.elementAt(1), value); //liwcCategories
         //ret.setValue(attributes.elementAt(2), exampleValue); //wordAnalysis
