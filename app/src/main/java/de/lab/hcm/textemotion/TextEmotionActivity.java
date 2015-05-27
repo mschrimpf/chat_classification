@@ -327,7 +327,7 @@ public class TextEmotionActivity extends Activity {
         //
 
         /* Gets all matches */
-        String[] textSplit = text.toLowerCase().split(" ");
+        String[] textSplit = text.toLowerCase().split("\\W+");
         List<Integer> matchingCategories = new ArrayList<>();
 
         for (String input : textSplit) {
