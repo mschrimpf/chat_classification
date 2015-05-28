@@ -72,6 +72,7 @@ public class TextEmotionActivity extends Activity {
     public FastVector<Attribute> attributesList = null;
     private Classifier cl;
     private Instances trainingData;
+    private boolean ldaCoefficientsEnabled = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -120,16 +121,14 @@ public class TextEmotionActivity extends Activity {
             throw new RuntimeException("unable to load categories map", e);
         }
         notRecognizedWords = new HashSet<>();
-        printTrainingSetAsCsv();
-        doBackwardsFeatureElimination();
-        //doForwardFeatureSelection();
+        //printTrainingSetAsCsv();
+        //doBackwardsFeatureElimination();
+        doForwardFeatureSelection();
 
         //hardcoded feature set
-        /*
-        usedCategories = new HashSet<>();
-        Collections.addAll(usedCategories, 7, 16, 18, 19, 59, 66, 3, 13, 14, 15);
-        train();
-        */
+        //usedCategories = new HashSet<>();
+        //Collections.addAll(usedCategories, 7, 16, 18, 19, 59, 66, 3, 13, 14, 15);
+        //train();
         //count(notRecognizedWords);
     }
 
@@ -295,6 +294,8 @@ public class TextEmotionActivity extends Activity {
             fvClassVal.addElement(emotions[2]);
             attributesList.addElement(new Attribute("emotion", fvClassVal));
             attributesList.addElement(new Attribute("isQuestion"));
+            attributesList.addElement(new Attribute("ld0"));
+            attributesList.addElement(new Attribute("ld1"));
             for(int i : usedCategories) {
                 attributesList.addElement(new Attribute("liwcCategory" + i));
             }
@@ -431,6 +432,21 @@ public class TextEmotionActivity extends Activity {
         for(int category : usedCategories){
             Attribute attr = attributesMap.get("liwcCategory" + category);
             ret.setValue(attr, matchingCategories.contains(category) ? 1 : 0);
+        }
+
+        if(ldaCoefficientsEnabled) {
+            //calculate linear discriminant factors
+            double[] lds = new double[LinearDiscriminantFactors.factors[0].length];
+            for (int cat = 0; cat < NR_OF_CATEGORIES; cat++) {
+                for (int i = 0; i < lds.length; i++) {
+                    int featureAs01 = (matchingCategories.contains(cat) ? 1 : 0);
+                    lds[i] += LinearDiscriminantFactors.factors[cat][i] * featureAs01;
+                }
+            }
+            for (int i = 0; i < lds.length; i++) {
+                Attribute attr = attributesMap.get("ld" + i);
+                ret.setValue(attr, lds[i]);
+            }
         }
 
         return ret;
