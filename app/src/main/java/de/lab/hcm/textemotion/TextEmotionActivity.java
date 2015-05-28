@@ -315,6 +315,7 @@ public class TextEmotionActivity extends Activity {
      * This is the "hot spot" where feature extraction has to be done...
      */
     public Instance getWEKAInstance(String text, String emotion) {
+        text = text.trim();
         // Assign the first attributes (the class)
         Instance ret = new DenseInstance(ATTRIB_COUNT);
         if(emotion != null) {
@@ -348,7 +349,7 @@ public class TextEmotionActivity extends Activity {
 
         //matchingCategories contains all categories that are found in the given text - now what?! TODO
         int value = 0;
-        boolean negative = false;
+        boolean negated = false;
         int effect = 1;
         for (int categoryId : matchingCategories){
             if (positiveList.indexOf(categoryId) >= 0){
@@ -358,7 +359,7 @@ public class TextEmotionActivity extends Activity {
                 value -= 1;
             }
             if (categoryId == negation){
-                negative = !negative;
+                negated = !negated;
             }
             /*
             //maybe, perhaps...
@@ -371,7 +372,10 @@ public class TextEmotionActivity extends Activity {
                 effect *= 0.9;
             }*/
         }
-        if (negative){
+        if(text.matches(".*\\?\\W*$") && negated) {
+            negated = false;
+        }
+        if (negated){
             value *= -1;
         }
         value *= effect;
