@@ -2,7 +2,7 @@ package de.lab.hcm.textemotion;
 
 /**
  * Created by chi-tai on 05.05.15.
-
+ * <p/>
  * Chi-Tai Dang
  * HCM-Lab
  * University of Augsburg
@@ -25,13 +25,18 @@ import android.widget.TextView;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import weka.classifiers.Classifier;
@@ -47,12 +52,12 @@ import weka.core.Instances;
 public class TextEmotionActivity extends Activity {
 
     private static final String TAG = "TextEmotionActivity";
-    
+
     private TextView mEvalResultTextView = null;
     private ImageView mResultImageView = null;
     private EditText mTestInputEditText = null;
     private DataParser mDataParser;
-    
+
     private List<Category> categories = null;
     public SortedMap<String, List<Integer>> catMap = null;
 
@@ -67,6 +72,8 @@ public class TextEmotionActivity extends Activity {
 
     private List<Integer> negativeList;
     private List<Integer> positiveList;
+    private List<String> positiveSmileys;
+    private List<String> negativeSmileys;
 
 
     //Negation value of LIWCCategories
@@ -74,7 +81,8 @@ public class TextEmotionActivity extends Activity {
     int exclusive = 45;
     int tentative = 25; // maybe, perhaps, gues
     int certainty = 26;
-    
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -116,44 +124,99 @@ public class TextEmotionActivity extends Activity {
         mResultImageView.setBackground(getResources().getDrawable(R.drawable.neutral, null));
         initLists();
         train();
+
+        // comment this in for finding best solutions
+        //evaluatePossibilities();
+        //count(notRecognizedWords);
+    }
+
+    private void evaluatePossibilities() {
+        negativeList = new ArrayList<>();
+        positiveList = new ArrayList<>();
+        Collections.addAll(negativeList, 16,18,19,59,66
+                );
+        Collections.addAll(positiveList, 3,13,14,15
+                );
+        double score = train();
+
+        for (Integer i = 1; i < 68; i++) {
+            if (negativeList.contains(i) || positiveList.contains(i)){
+                continue;
+            }
+            negativeList.add(i);
+            double scoreNegativeAdd = train();
+            negativeList.remove(i);
+            positiveList.add(i);
+            double scorePositiveAdd = train();
+            negativeList.add(i);
+            double scoreBothAdd = train();
+            negativeList.remove(i);
+            positiveList.remove(i);
+
+            if (score > scoreNegativeAdd || score > scorePositiveAdd || score > scoreBothAdd) {
+                if (scoreNegativeAdd < scorePositiveAdd) {
+                    if (scoreNegativeAdd < scoreBothAdd) {
+                        negativeList.add(i);
+                        score = scoreNegativeAdd;
+                    } else {
+                        positiveList.add(i);
+                        negativeList.add(i);
+                        score = scoreBothAdd;
+                    }
+                } else if (scorePositiveAdd < scoreBothAdd) {
+                    positiveList.add(i);
+                    score = scorePositiveAdd;
+                } else {
+                    positiveList.add(i);
+                    negativeList.add(i);
+                    score = scoreBothAdd;
+                }
+            }
+            Log.w(TAG, "Success rate for run " + i + " is: " + (1 - score));
+        }
+        Log.w(TAG, "Error rate is: " + score);
     }
 
     private void initLists() {
         //Negative values of LIWCCategories
         negativeList = new ArrayList<>();
-        Collections.addAll(negativeList,
-                8 //assent - Agree, OK, yes
-                ,16 //negemo - negative emotions
-                ,17 //anx - anxiety
-                ,18 //anger - anger
-                ,19 //sad - sadness
+        Collections.addAll(negativeList
+                , 16 //negemo - negative emotions
+                , 17 //anx - anxiety
+                , 18 //anger - anger
+                , 19 //sad - sadness
                 //,24 //inhib - Inhibition
-                ,66 //swear - Swear Words
-                ,67 //Nonfl - Nonfluencies
-                //,58 //religion
-                ,59 //death
-                //,68  //Fillers
+                //,40 //future
+                //,61 //body
+                //,43 //down
                 //,47 //occup
                 //,48 //school
                 //,49 //job
                 //,56 //money
-                //,61 //body
-                //,43 //down
-                //,40 //future
+                //,58 //religion
+                , 59 //death
+                , 64 //
+                , 66 //swear - Swear Words
+                //, 67 //Nonfl - Nonfluencies
+                //,68  //Fillers
         );
 
         //Positive values of LIWCCategories
         positiveList = new ArrayList<>();
-        Collections.addAll(positiveList,
-                13 //posemo - positive emotions
-                ,14	//Posfeel - positive feelings
-                ,15	//Optim - optimism
+        Collections.addAll(positiveList
+                , 3 //we
+                //,8 //assent - Agree, OK, yes
+                , 13 //posemo - positive emotions
+                , 14    //Posfeel - positive feelings
+                , 15    //Optim - optimism
                 //,31 //social
                 //,32 //comm - communication
-                ,34 //Friends
-                ,35 //Family
-                ,50 //achieve
-                ,36 //humans
+                //, 34 //Friends
+                , 35 //Family
+                , 36 //humans
+                //,38 //past
+                //,42 //up
+                , 50 //achieve
                 //,51 //leisure
                 //,52 //home
                 //,53 //sports
@@ -162,18 +225,18 @@ public class TextEmotionActivity extends Activity {
                 //,62 //sexual
                 //,63 //eating
                 //,64 //sleep
-                //,42 //up
                 //,65 //groom
-                //,38 //past
         );
     }
 
-    private void train()
-    {
+    List<String> notRecognizedWords;
+
+    private double train() {
+        notRecognizedWords = new ArrayList<>();
         Log.d(TAG, "Training...");
 
         try {
-            emotions = new String[] {"Positive", "Negative", "Neutral"};
+            emotions = new String[]{"Positive", "Negative", "Neutral"};
 
             ATTRIB_COUNT = 0;
 
@@ -222,7 +285,9 @@ public class TextEmotionActivity extends Activity {
             File trainFile = File.createTempFile("Training", ".arff");
             FileWriter fw = new FileWriter(trainFile);
 
-            fw.write(trainingData.toString()); fw.flush(); fw.close();
+            fw.write(trainingData.toString());
+            fw.flush();
+            fw.close();
 
             cl = new NaiveBayes();
 
@@ -239,15 +304,15 @@ public class TextEmotionActivity extends Activity {
                 String evals = eva.toSummaryString();
                 evals += "\r\n" + eva.toClassDetailsString();
                 evals += "\r\n" + eva.toMatrixString();
-                mEvalResultTextView.setText (evals);
+                mEvalResultTextView.setText(evals);
             }
-
             Log.d(TAG, eva.toSummaryString());
             Log.d(TAG, eva.toClassDetailsString());
             Log.d(TAG, eva.toMatrixString());
-        }
-        catch (Exception e) {
+            return eva.errorRate();
+        } catch (Exception e) {
             e.printStackTrace();
+            return -1;
         }
     }
 
@@ -299,7 +364,7 @@ public class TextEmotionActivity extends Activity {
 
     // Used to fill our dataset with instances and according features
     public void classifyMore(Instances ret, List<String> strings, String emotion) {
-        for(String string: strings) {
+        for (String string : strings) {
             ret.add(getWEKAInstance(string, emotion));
         }
     }
@@ -318,7 +383,7 @@ public class TextEmotionActivity extends Activity {
         text = text.trim();
         // Assign the first attributes (the class)
         Instance ret = new DenseInstance(ATTRIB_COUNT);
-        if(emotion != null) {
+        if (emotion != null) {
             ret.setValue(attributes.elementAt(0), emotion);
         }
 
@@ -328,34 +393,60 @@ public class TextEmotionActivity extends Activity {
         //
 
         /* Gets all matches */
-        String[] textSplit = text.toLowerCase().split("\\W+");
+
         List<Integer> matchingCategories = new ArrayList<>();
 
-        for (String input : textSplit) {
-            if (catMap.containsKey(input)) {
+        String[] wordSplit = text.toLowerCase().split(" ");
+        for (String word : wordSplit) {
+            if (word == null || Objects.equals(word, "")) {
+                continue;
+            }
+            if (catMap.containsKey(word)) {
                 /* already inside of the map */
-                matchingCategories.addAll(catMap.get(input));
+                matchingCategories.addAll(catMap.get(word));
             } else {
                 /* Look for every word which starts with first two (or one, if only one character) and check those */
-                String prefix = input.length() > 1 ? input.substring(0, 2) : input.substring(0, 1);
+                String prefix = word.length() > 1 ? word.substring(0, 2) : word.substring(0, 1);
+                boolean matched = false;
                 for (Map.Entry<String, List<Integer>> entry : filterPrefix(catMap, prefix).entrySet()) {
                     Pattern pattern = Pattern.compile(entry.getKey());
-                    if (pattern.matcher(input).matches()) {
+                    if (pattern.matcher(word).matches()) {
                         matchingCategories.addAll(entry.getValue());
+                        matched = true;
+                    }
+                }
+                if (!matched) {
+                    String[] escapedWords = word.split("\\W");
+                    for (String escapedWord : escapedWords) {
+                        if (escapedWord == null || Objects.equals(escapedWord, "")) {
+                            continue;
+                        }
+                        String escapedPrefix = escapedWord.length() > 1 ? escapedWord.substring(0, 2) : escapedWord.substring(0, 1);
+                        for (Map.Entry<String, List<Integer>> entry : filterPrefix(catMap, escapedPrefix).entrySet()) {
+                            Pattern pattern = Pattern.compile(entry.getKey());
+                            if (pattern.matcher(escapedWord).matches()) {
+                                matchingCategories.addAll(entry.getValue());
+                                matched = true;
+                            }
+                        }
+                        if (!matched) {
+                            notRecognizedWords.add(escapedWord);
+                        }
                     }
                 }
             }
         }
 
+
         //matchingCategories contains all categories that are found in the given text - now what?! TODO
         int value = 0;
         boolean negated = false;
         int effect = 1;
-        for (int categoryId : matchingCategories){
-            if (positiveList.indexOf(categoryId) >= 0){
+        for (int categoryId : matchingCategories) {
+            if (positiveList.indexOf(categoryId) >= 0) {
                 value += 1;
             }
-            if (negativeList.indexOf(categoryId) >= 0){
+            if (negativeList.indexOf(categoryId) >= 0) {
                 value -= 1;
             }
             if (categoryId == negation){
@@ -385,12 +476,42 @@ public class TextEmotionActivity extends Activity {
         return ret;
     }
 
+    private void count(Collection<String> collection) {
+        final Map<String, Integer> map = new TreeMap<>();
+        for (String string : collection) {
+            if (map.containsKey(string)) {
+                map.put(string, map.get(string) + 1);
+            } else {
+                map.put(string, 1);
+            }
+        }
+        SortedSet<Map.Entry<String, Integer>> sortedMap = entriesSortedByValues(map);
+        for (Map.Entry<String, Integer> pair : sortedMap) {
+            Log.i(TAG, pair.getKey() + ": " + pair.getValue());
+        }
+    }
+
+    static <K, V extends Comparable<? super V>>
+    SortedSet<Map.Entry<K, V>> entriesSortedByValues(Map<K, V> map) {
+        SortedSet<Map.Entry<K, V>> sortedEntries = new TreeSet<>(
+                new Comparator<Map.Entry<K, V>>() {
+                    @Override
+                    public int compare(Map.Entry<K, V> e1, Map.Entry<K, V> e2) {
+                        int res = e1.getValue().compareTo(e2.getValue());
+                        return res != 0 ? res : 1;
+                    }
+                }
+        );
+        sortedEntries.addAll(map.entrySet());
+        return sortedEntries;
+    }
+
     /* http://stackoverflow.com/questions/6713239/partial-search-in-hashmap */
-    public <V> SortedMap<String, V> filterPrefix(SortedMap<String,V> baseMap, String prefix) {
-        if(prefix.length() > 0) {
-            char nextLetter = prefix.charAt(prefix.length() -1);
+    public <V> SortedMap<String, V> filterPrefix(SortedMap<String, V> baseMap, String prefix) {
+        if (prefix.length() > 0) {
+            char nextLetter = prefix.charAt(prefix.length() - 1);
             nextLetter++;
-            String end = prefix.substring(0, prefix.length()-1) + nextLetter;
+            String end = prefix.substring(0, prefix.length() - 1) + nextLetter;
             return baseMap.subMap(prefix, end);
         }
         return baseMap;

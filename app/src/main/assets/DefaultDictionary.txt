@@ -171,6 +171,7 @@ awake*               60 64
 award*               12 13 15 47 50
 aware*               20 22
 away                 10
+awsome*              12 13
 awesome*             12 13
 awful                12 16
 babe                 31 36
@@ -946,6 +947,7 @@ happened             38
 happens              39
 happi*               12 13 14
 happy                12 13 14
+happyness            12 13 14
 harass*              12 16 18
 harmony              12 13
 has                  39
@@ -1768,6 +1770,7 @@ shower               51 52 60 65
 showing              27 28
 shows                27 28 39
 shy*                 12 16 17
+sick                 12 16 17
 sicken*              12 16 17 60 61
 side                 41
 siesta*              60 64
@@ -1939,6 +1942,7 @@ suspect*             20 22
 suspicious*          12 16 18
 swallow*             60 63
 sweat                60 61
+sweaty               31 34
 sweet                12 13 27
 sweetheart*          31 34
 swim*                46 51 53
@@ -2130,6 +2134,7 @@ undo                 20 23 39
 undoubt*             26
 uneas*               12 16 17
 unfortunate*         12 16
+unfriendly           12 16 18
 unhapp*              12 16 19
 unimportant          12 16 19
 universe             41
@@ -2202,6 +2207,7 @@ want                 20 23 39
 wanted               20 23 38
 wanting              20 23
 wants                20 23 39
+war                  59
 warm                 12 13
 warmth               12 13
 was                  38
