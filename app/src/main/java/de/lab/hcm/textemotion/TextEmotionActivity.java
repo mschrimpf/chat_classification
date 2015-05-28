@@ -2,7 +2,7 @@ package de.lab.hcm.textemotion;
 
 /**
  * Created by chi-tai on 05.05.15.
- * <p/>
+ *
  * Chi-Tai Dang
  * HCM-Lab
  * University of Augsburg
@@ -13,6 +13,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -24,15 +25,18 @@ import android.widget.TextView;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
@@ -58,30 +62,14 @@ public class TextEmotionActivity extends Activity {
     private EditText mTestInputEditText = null;
     private DataParser mDataParser;
 
-    private List<Category> categories = null;
     public SortedMap<String, List<Integer>> catMap = null;
 
-    // Category, Count
-    public Map<Integer, Integer> resultMap = new HashMap<>();
-    private int ATTRIB_COUNT = 2;
-    private int ATTRIB_CLASS = 0;
     public String[] emotions = null;
-    public FastVector<Attribute> attributes = null;
+    private Set<Integer> usedCategories;
+    public Map<String, Attribute> attributesMap = null;
+    public FastVector<Attribute> attributesList = null;
     private Classifier cl;
     private Instances trainingData;
-
-    private List<Integer> negativeList;
-    private List<Integer> positiveList;
-    private List<String> positiveSmileys;
-    private List<String> negativeSmileys;
-
-
-    //Negation value of LIWCCategories
-    int negation = 7;
-    int exclusive = 45;
-    int tentative = 25; // maybe, perhaps, gues
-    int certainty = 26;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -122,164 +110,179 @@ public class TextEmotionActivity extends Activity {
         });
 
         mResultImageView.setBackground(getResources().getDrawable(R.drawable.neutral, null));
-        initLists();
-        train();
 
-        // comment this in for finding best solutions
-        //evaluatePossibilities();
+        // Load category map
+        try {
+            catMap = mDataParser.loadCatMap();
+        } catch(Exception e) {
+            throw new RuntimeException("unable to load categories map", e);
+        }
+        notRecognizedWords = new HashSet<>();
+        doBackwardsFeatureElimination();
+        //doForwardFeatureSelection();
+
+        //hardcoded feature set
+        /*
+        usedCategories = new HashSet<>();
+        Collections.addAll(usedCategories, 7, 16, 18, 19, 59, 66, 3, 13, 14, 15);
+        train();
+        */
         //count(notRecognizedWords);
     }
 
-    private void evaluatePossibilities() {
-        negativeList = new ArrayList<>();
-        positiveList = new ArrayList<>();
-        Collections.addAll(negativeList, 16,18,19,59,66
-                );
-        Collections.addAll(positiveList, 3,13,14,15
-                );
-        double score = train();
+    //caches the matched categories for a string
+    private static class PreprocessedString {
+        String text;
+        Set<Integer> matchingCategories;
 
-        for (Integer i = 1; i < 68; i++) {
-            if (negativeList.contains(i) || positiveList.contains(i)){
-                continue;
-            }
-            negativeList.add(i);
-            double scoreNegativeAdd = train();
-            negativeList.remove(i);
-            positiveList.add(i);
-            double scorePositiveAdd = train();
-            negativeList.add(i);
-            double scoreBothAdd = train();
-            negativeList.remove(i);
-            positiveList.remove(i);
-
-            if (score > scoreNegativeAdd || score > scorePositiveAdd || score > scoreBothAdd) {
-                if (scoreNegativeAdd < scorePositiveAdd) {
-                    if (scoreNegativeAdd < scoreBothAdd) {
-                        negativeList.add(i);
-                        score = scoreNegativeAdd;
-                    } else {
-                        positiveList.add(i);
-                        negativeList.add(i);
-                        score = scoreBothAdd;
-                    }
-                } else if (scorePositiveAdd < scoreBothAdd) {
-                    positiveList.add(i);
-                    score = scorePositiveAdd;
-                } else {
-                    positiveList.add(i);
-                    negativeList.add(i);
-                    score = scoreBothAdd;
-                }
-            }
-            Log.w(TAG, "Success rate for run " + i + " is: " + (1 - score));
+        public PreprocessedString(String text, Set<Integer> matchingCategories) {
+            this.text = text;
+            this.matchingCategories = matchingCategories;
         }
-        Log.w(TAG, "Error rate is: " + score);
     }
 
-    private void initLists() {
-        //Negative values of LIWCCategories
-        negativeList = new ArrayList<>();
-        Collections.addAll(negativeList
-                , 16 //negemo - negative emotions
-                , 17 //anx - anxiety
-                , 18 //anger - anger
-                , 19 //sad - sadness
-                //,24 //inhib - Inhibition
-                //,40 //future
-                //,61 //body
-                //,43 //down
-                //,47 //occup
-                //,48 //school
-                //,49 //job
-                //,56 //money
-                //,58 //religion
-                , 59 //death
-                , 64 //
-                , 66 //swear - Swear Words
-                //, 67 //Nonfl - Nonfluencies
-                //,68  //Fillers
-        );
-
-        //Positive values of LIWCCategories
-        positiveList = new ArrayList<>();
-        Collections.addAll(positiveList
-                , 3 //we
-                //,8 //assent - Agree, OK, yes
-                , 13 //posemo - positive emotions
-                , 14    //Posfeel - positive feelings
-                , 15    //Optim - optimism
-                //,31 //social
-                //,32 //comm - communication
-                //, 34 //Friends
-                , 35 //Family
-                , 36 //humans
-                //,38 //past
-                //,42 //up
-                , 50 //achieve
-                //,51 //leisure
-                //,52 //home
-                //,53 //sports
-                //,54 //tv
-                //,55 //Music
-                //,62 //sexual
-                //,63 //eating
-                //,64 //sleep
-                //,65 //groom
-        );
+    private void doBackwardsFeatureElimination() {
+        // Load training set
+        List<List<PreprocessedString>> sampleSets = loadTrainingSet();
+        //start with all features selected
+        usedCategories = new HashSet<>();
+        for(int i = 1; i <= 68; i++) {
+            usedCategories.add(i);
+        }
+        Log.w(TAG, "Used features: " + TextUtils.join(", ", usedCategories));
+        double errorRate = train(sampleSets);
+        //try to remove as many features as possible
+        while(true) {
+            //which feature to remove next?
+            int bestCategoryToRemove = -1;
+            //copying the list is necessary to avoid ConcurrentModificationException
+            for(Integer candidate : new ArrayList<Integer>(usedCategories)) {
+                Log.i(TAG, "candidate: " + candidate);
+                usedCategories.remove(candidate);
+                double newErrorRate = train(sampleSets);
+                if(newErrorRate < errorRate) {
+                    errorRate = newErrorRate;
+                    bestCategoryToRemove = candidate;
+                }
+                //after testing; add it again
+                usedCategories.add(candidate);
+            }
+            //no feature found?
+            if(bestCategoryToRemove == -1) {
+                break;
+            }
+            //remove the feature
+            usedCategories.remove(bestCategoryToRemove);
+            //debug output
+            Log.w(TAG, "Removed feature " + bestCategoryToRemove);
+            Log.w(TAG, "Used features: " + TextUtils.join(", ", usedCategories));
+            Log.w(TAG, "Success rate: " + (1 - errorRate));
+        }
+        //train the model with the selected features
+        train(sampleSets);
     }
 
-    List<String> notRecognizedWords;
+    private void doForwardFeatureSelection() {
+        // Load training set
+        List<List<PreprocessedString>> sampleSets = loadTrainingSet();
+        //start with no features selected
+        usedCategories = new HashSet<>();
+        Log.w(TAG, "Used features: " + TextUtils.join(", ", usedCategories));
+        double errorRate = train(sampleSets);
+        //try to remove as many features as possible
+        while(true) {
+            //which feature to remove next?
+            int bestCategoryToAdd = -1;
+            ArrayList<Integer> candidates = new ArrayList<>();
+            for(int i = 1; i <= 68; i++) {
+                if(!usedCategories.contains(i)) candidates.add(i);
+            }
+            for(Integer candidate : candidates) {
+                Log.i(TAG, "candidate: " + candidate);
+                usedCategories.add(candidate);
+                double newErrorRate = train(sampleSets);
+                if(newErrorRate < errorRate) {
+                    errorRate = newErrorRate;
+                    bestCategoryToAdd = candidate;
+                }
+                //after testing; remove it again
+                usedCategories.remove(candidate);
+            }
+            //no feature found?
+            if(bestCategoryToAdd == -1) {
+                break;
+            }
+            //remove the feature
+            usedCategories.add(bestCategoryToAdd);
+            //debug output
+            Log.w(TAG, "Added feature " + bestCategoryToAdd);
+            Log.w(TAG, "Used features: " + TextUtils.join(", ", usedCategories));
+            Log.w(TAG, "Success rate: " + (1 - errorRate));
+        }
+        //train the model with the selected features
+        train(sampleSets);
+    }
+
+    // Load the training set
+    private List<List<PreprocessedString>> loadTrainingSet() {
+        try {
+            emotions = new String[]{"Positive", "Negative", "Neutral"};
+            List<List<PreprocessedString>> sampleSets = new ArrayList<>();
+            for(String basename : emotions) {
+                List<String> strs = mDataParser.loadDataLines(basename + ".txt");
+                List<PreprocessedString> currentSampleSet = new ArrayList<>(strs.size());
+                for(String str : strs) {
+                    str = str.trim();
+                    currentSampleSet.add(new PreprocessedString(str, getMatchingCategories(str)));
+                }
+                sampleSets.add(currentSampleSet);
+            }
+            return sampleSets;
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
 
     private double train() {
-        notRecognizedWords = new ArrayList<>();
+        return train(loadTrainingSet());
+    }
+
+    Set<Object> notRecognizedWords;
+
+    private double train(List<List<PreprocessedString>> sampleSets) {
         Log.d(TAG, "Training...");
 
         try {
-            emotions = new String[]{"Positive", "Negative", "Neutral"};
-
-            ATTRIB_COUNT = 0;
-
+            attributesList = new FastVector<>(2);
             FastVector<String> fvClassVal = new FastVector<>(2);
             fvClassVal.addElement(emotions[0]);
             fvClassVal.addElement(emotions[1]);
             fvClassVal.addElement(emotions[2]);
+            attributesList.addElement(new Attribute("emotion", fvClassVal));
+            attributesList.addElement(new Attribute("isQuestion"));
+            for(int i : usedCategories) {
+                attributesList.addElement(new Attribute("liwcCategory" + i));
+            }
 
-            Attribute emotionClasses = new Attribute("Emotion", fvClassVal);
-            ATTRIB_COUNT++;
-            Attribute liwcCategories = new Attribute("liwcCategories");
-            ATTRIB_COUNT++;
-            Attribute wordAnalysis = new Attribute("wordAnalysis");
-            ATTRIB_COUNT++;
-
-            // Create vector for attributes
-            attributes = new FastVector<>(ATTRIB_COUNT);
-            attributes.addElement(emotionClasses);
-            attributes.addElement(liwcCategories);
-            attributes.addElement(wordAnalysis);
-            ATTRIB_CLASS = 0;
-
-            // Load category map
-            catMap = mDataParser.loadCatMap();
-
-            // Load categories
-            categories = mDataParser.loadCategories();
-
-            // Load training set
-            List<String> neutrals = mDataParser.loadDataLines("Neutral.txt"),
-                    positives = mDataParser.loadDataLines("Positive.txt"),
-                    negatives = mDataParser.loadDataLines("Negative.txt");
-
+            //store them in a map for faster access later
+            attributesMap = new HashMap<>();
+            for(Attribute attr : attributesList) {
+                attributesMap.put(attr.name(), attr);
+            }
 
             // Create weka instances and name them Text2Emo
-            trainingData = new Instances("Text2Emo", attributes, positives.size());
-
+            int overallSize = 0;
+            for(List<PreprocessedString> samples : sampleSets) {
+                overallSize += samples.size();
+            }
+            trainingData = new Instances("Text2Emo", attributesList, overallSize);
             /// Our first attribute (0) declares the class
-            trainingData.setClassIndex(ATTRIB_CLASS);
-
-            classifyMore(trainingData, positives, "Positive");
-            classifyMore(trainingData, neutrals, "Neutral");
-            classifyMore(trainingData, negatives, "Negative");
+            trainingData.setClassIndex(0);
+            //add all the training data
+            for(int i = 0; i < sampleSets.size(); i++) {
+                classifyMore(trainingData, sampleSets.get(i), emotions[i]);
+            }
 
             // Backup weka instances
             File trainFile = File.createTempFile("Training", ".arff");
@@ -363,9 +366,9 @@ public class TextEmotionActivity extends Activity {
 
 
     // Used to fill our dataset with instances and according features
-    public void classifyMore(Instances ret, List<String> strings, String emotion) {
-        for (String string : strings) {
-            ret.add(getWEKAInstance(string, emotion));
+    public void classifyMore(Instances ret, List<PreprocessedString> strings, String emotion) {
+        for (PreprocessedString ppstring : strings) {
+            ret.add(getWEKAInstance(ppstring.text, ppstring.matchingCategories, emotion));
         }
     }
 
@@ -376,25 +379,31 @@ public class TextEmotionActivity extends Activity {
         return cl.distributionForInstance(iUse);
     }
 
-    /*
-     * This is the "hot spot" where feature extraction has to be done...
-     */
     public Instance getWEKAInstance(String text, String emotion) {
         text = text.trim();
+        Set<Integer> matchingCategories = getMatchingCategories(text);
+        return getWEKAInstance(text, matchingCategories, emotion);
+    }
+
+    public Instance getWEKAInstance(String text, Set<Integer> matchingCategories, String emotion) {
         // Assign the first attributes (the class)
-        Instance ret = new DenseInstance(ATTRIB_COUNT);
+        Instance ret = new DenseInstance(attributesList.size());
         if (emotion != null) {
-            ret.setValue(attributes.elementAt(0), emotion);
+            ret.setValue(attributesMap.get("emotion"), emotion);
         }
 
-        //
-        // Do some feature extraction and calculation
-        // Make use of the dictionary and word categories
-        //
+        ret.setValue(attributesMap.get("isQuestion"), text.matches(".*\\?\\W*$") ? 1 : 0);
 
-        /* Gets all matches */
+        for(int category : usedCategories){
+            Attribute attr = attributesMap.get("liwcCategory" + category);
+            ret.setValue(attr, matchingCategories.contains(category) ? 1 : 0);
+        }
 
-        List<Integer> matchingCategories = new ArrayList<>();
+        return ret;
+    }
+
+    private Set<Integer> getMatchingCategories(String text) {
+        Set<Integer> matchingCategories = new HashSet<>();
 
         String[] wordSplit = text.toLowerCase().split(" ");
         for (String word : wordSplit) {
@@ -436,44 +445,7 @@ public class TextEmotionActivity extends Activity {
                 }
             }
         }
-
-
-        //matchingCategories contains all categories that are found in the given text - now what?! TODO
-        int value = 0;
-        boolean negated = false;
-        int effect = 1;
-        for (int categoryId : matchingCategories) {
-            if (positiveList.indexOf(categoryId) >= 0) {
-                value += 1;
-            }
-            if (negativeList.indexOf(categoryId) >= 0) {
-                value -= 1;
-            }
-            if (categoryId == negation){
-                negated = !negated;
-            }
-            /*
-            //maybe, perhaps...
-            if (categoryId == tentative){
-                effect *= 0.5;
-            } if (categoryId == 2 || categoryId == 4 || categoryId == 3){ // I, myself, we
-                //effect *= 0.5;
-            }
-            if (categoryId == 5 || categoryId == 6){ //you, others
-                effect *= 0.9;
-            }*/
-        }
-        if(text.matches(".*\\?\\W*$") && negated) {
-            negated = false;
-        }
-        if (negated){
-            value *= -1;
-        }
-        value *= effect;
-
-        ret.setValue(attributes.elementAt(1), value); //liwcCategories
-        //ret.setValue(attributes.elementAt(2), exampleValue); //wordAnalysis
-        return ret;
+        return matchingCategories;
     }
 
     private void count(Collection<String> collection) {
