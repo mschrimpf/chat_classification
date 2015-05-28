@@ -23,6 +23,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -56,6 +57,7 @@ import weka.core.Instances;
 public class TextEmotionActivity extends Activity {
 
     private static final String TAG = "TextEmotionActivity";
+    private static final int NR_OF_CATEGORIES = 68;
 
     private TextView mEvalResultTextView = null;
     private ImageView mResultImageView = null;
@@ -118,6 +120,7 @@ public class TextEmotionActivity extends Activity {
             throw new RuntimeException("unable to load categories map", e);
         }
         notRecognizedWords = new HashSet<>();
+        printTrainingSetAsCsv();
         doBackwardsFeatureElimination();
         //doForwardFeatureSelection();
 
@@ -146,7 +149,7 @@ public class TextEmotionActivity extends Activity {
         List<List<PreprocessedString>> sampleSets = loadTrainingSet();
         //start with all features selected
         usedCategories = new HashSet<>();
-        for(int i = 1; i <= 68; i++) {
+        for(int i = 1; i <= NR_OF_CATEGORIES; i++) {
             usedCategories.add(i);
         }
         Log.w(TAG, "Used features: " + TextUtils.join(", ", usedCategories));
@@ -194,7 +197,7 @@ public class TextEmotionActivity extends Activity {
             //which feature to remove next?
             int bestCategoryToAdd = -1;
             ArrayList<Integer> candidates = new ArrayList<>();
-            for(int i = 1; i <= 68; i++) {
+            for(int i = 1; i <= NR_OF_CATEGORIES; i++) {
                 if(!usedCategories.contains(i)) candidates.add(i);
             }
             for(Integer candidate : candidates) {
@@ -241,6 +244,37 @@ public class TextEmotionActivity extends Activity {
         } catch (IOException e) {
             e.printStackTrace();
             throw new RuntimeException(e);
+        }
+    }
+
+    //makes the whole table exportable as CSV
+    private void printTrainingSetAsCsv() {
+        List<List<PreprocessedString>> data = loadTrainingSet();
+        StringBuilder csvBuilder = new StringBuilder();
+        for(int i = 0; i < data.size(); i++) {
+            String result = emotions[i];
+            List<PreprocessedString> samples = data.get(i);;
+            for(PreprocessedString ppstr : samples) {
+                csvBuilder.append(ppstr.text).append("\t").append(result);
+                for(int cat = 1; cat <= NR_OF_CATEGORIES; cat++) {
+                    csvBuilder.append("\t").append(ppstr.matchingCategories.contains(cat) ? "yes": "no");
+                }
+                csvBuilder.append("\n");
+            }
+        }
+        Log.d(TAG, "CSV dump:\n" + csvBuilder.toString());
+        try {
+            File logFile = File.createTempFile("dump", ".csv");
+            if (!logFile.exists()) {
+                logFile.createNewFile();
+            }
+            // BufferedWriter for performance
+            BufferedWriter buf = new BufferedWriter(new FileWriter(logFile));
+            buf.append(csvBuilder.toString());
+            buf.newLine();
+            buf.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
